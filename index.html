@@ -142,7 +142,7 @@
       </div>
       <div class="filter-group">
         <label for="f-leader">Leader</label>
-        <input type="text" id="f-leader" placeholder="Search leader name...">
+        <input type="text" id="f-leader" placeholder="Search leader name or category...">
       </div>
       <button class="reset-btn" id="reset-btn">Reset filters</button>
     </div>
@@ -202,7 +202,8 @@
     <table class="data-table" id="data-table">
       <thead>
         <tr>
-          <th data-key="leader">Leader</th>
+          <th data-key="leader">Leader (category)</th>
+          <th data-key="leader_full">Leader name</th>
           <th data-key="config_id">Config ID</th>
           <th data-key="available">Slot available</th>
           <th data-key="not_available">Manual scheduling</th>
@@ -255,7 +256,11 @@ function getFilteredRows() {
   return RAW_DATA.filter(r => {
     if (state.day !== 'all' && r.day !== state.day) return false;
     if (state.platform !== 'all' && r.platform !== state.platform) return false;
-    if (state.leader && !r.leader.toLowerCase().includes(state.leader.toLowerCase())) return false;
+    if (state.leader) {
+      const q = state.leader.toLowerCase();
+      const matches = r.leader.toLowerCase().includes(q) || (r.leader_full && r.leader_full.toLowerCase().includes(q));
+      if (!matches) return false;
+    }
     return true;
   });
 }
@@ -345,7 +350,7 @@ function aggregateByLeader(rows) {
   rows.forEach(r => {
     const key = r.config_id;
     if (!map.has(key)) {
-      map.set(key, { leader: r.leader, config_id: r.config_id, available: 0, not_available: 0 });
+      map.set(key, { leader: r.leader, leader_full: r.leader_full, config_id: r.config_id, available: 0, not_available: 0 });
     }
     const e = map.get(key);
     e.available += r.available;
@@ -373,7 +378,10 @@ function renderLeaderChart(leaderAgg) {
     options: {
       indexAxis: 'y',
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { afterLabel: (ctx) => top[ctx.dataIndex].leader_full ? 'Name: ' + top[ctx.dataIndex].leader_full : '' } }
+      },
       scales: {
         x: { beginAtZero: true, grid: { color: '#eeece7' }, ticks: { color: '#8a8983' } },
         y: { grid: { display: false }, ticks: { color: '#8a8983' } }
@@ -404,6 +412,7 @@ function renderTable(leaderAgg) {
   tbody.innerHTML = pageRows.map(r => `
     <tr>
       <td>${r.leader}</td>
+      <td>${r.leader_full || '&mdash;'}</td>
       <td>${r.config_id}</td>
       <td>${fmtInt(r.available)}</td>
       <td>${fmtInt(r.not_available)}</td>
